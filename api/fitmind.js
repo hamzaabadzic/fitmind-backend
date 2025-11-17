@@ -1,56 +1,57 @@
-export default async function handler(req, res) {
+const API_URL = "https://fitmind-backend.vercel.app/api/fitmind";
+
+async function sendMessage() {
+    const input = document.getElementById("user-input");
+    let text = input.value.trim();
+    if (!text) return;
+
+    addMessage(text, "user");
+    input.value = "";
+
+    // Placeholder "thinking"
+    const thinkingId = addMessage("FitMind razmišlja… ⏳", "bot");
+
     try {
-        if (req.method !== "POST") {
-            return res.status(405).json({ error: "Only POST allowed" });
-        }
-
-        let rawBody = "";
-
-        await new Promise((resolve) => {
-            req.on("data", (chunk) => {
-                rawBody += chunk;
-            });
-            req.on("end", resolve);
-        });
-
-        const { message } = JSON.parse(rawBody);
-
-        if (!message) {
-            return res.status(400).json({ error: "Missing message field" });
-        }
-
-        const SYSTEM_PROMPT = `
-Ti si FitMind AI – napredni trener za ishranu, oporavak, trening i zdravlje.
-Odgovaraj stručno, motivirajuće i jasno.
-`;
-
-        const openaiRes = await fetch("https://api.openai.com/v1/responses", {
+        const response = await fetch(API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
             },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                input: [
-                    { role: "system", content: SYSTEM_PROMPT },
-                    { role: "user", content: message }
-                ],
-            }),
+            body: JSON.stringify({ message: text }),
         });
 
-        const data = await openaiRes.json();
+        const data = await response.json();
 
-        const reply =
-            data?.output?.[0]?.content?.[0]?.text ||
-            "Greška u AI odgovoru.";
-
-        return res.status(200).json({ reply });
-
-    } catch (err) {
-        return res.status(500).json({
-            error: "Server error",
-            details: err.message,
-        });
+        updateMessage(thinkingId, data.reply || "Greška u odgovoru.");
+    } 
+    catch (err) {
+        updateMessage(thinkingId, "Server error: " + err.message);
     }
 }
+
+// Add message visually
+function addMessage(text, sender) {
+    const chatBox = document.getElementById("chat-box");
+
+    const msg = document.createElement("div");
+    msg.classList.add("message", sender);
+    msg.innerText = text;
+
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    return msg; // RETURN element so we can edit it later
+}
+
+// Update bot placeholder
+function updateMessage(msgElement, newText) {
+    msgElement.innerText = newText;
+}
+
+// SEND ON ENTER
+document.getElementById("user-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") sendMessage();
+});
+
+// SEND ON BUTTON CLICK
+document.getElementById("send-btn").onclick = sendMessage;
