@@ -9,29 +9,27 @@ export default async function handler(req, res) {
         const { message } = req.body;
 
         if (!message) {
-            return res.status(400).json({ error: "Message missing" });
+            return res.status(400).json({ error: "Message is required" });
         }
 
         const client = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
         });
 
-        const completion = await client.chat.completions.create({
+        const response = await client.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: "Ti si FitMind AI trener za ishranu i trening." },
                 { role: "user", content: message }
-            ],
+            ]
         });
 
-        const reply = completion.choices[0].message.content;
+        return res.status(200).json({
+            reply: response.choices[0].message.content
+        });
 
-        return res.status(200).json({ reply });
     } catch (err) {
         console.error("AI ERROR:", err);
-        return res.status(500).json({
-            error: "Server error",
-            details: err.message,
-        });
+        res.status(500).json({ error: "Server error", details: err.message });
     }
 }
