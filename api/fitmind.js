@@ -1,57 +1,37 @@
-const API_URL = "https://fitmind-backend.vercel.app/api/fitmind";
+import OpenAI from "openai";
 
-async function sendMessage() {
-    const input = document.getElementById("user-input");
-    let text = input.value.trim();
-    if (!text) return;
-
-    addMessage(text, "user");
-    input.value = "";
-
-    // Placeholder "thinking"
-    const thinkingId = addMessage("FitMind razmišlja… ⏳", "bot");
+export default async function handler(req, res) {
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Only POST allowed" });
+    }
 
     try {
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ message: text }),
+        const { message } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ error: "Message missing" });
+        }
+
+        const client = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
         });
 
-        const data = await response.json();
+        const completion = await client.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: "Ti si FitMind AI trener za ishranu i trening." },
+                { role: "user", content: message }
+            ],
+        });
 
-        updateMessage(thinkingId, data.reply || "Greška u odgovoru.");
-    } 
-    catch (err) {
-        updateMessage(thinkingId, "Server error: " + err.message);
+        const reply = completion.choices[0].message.content;
+
+        return res.status(200).json({ reply });
+    } catch (err) {
+        console.error("AI ERROR:", err);
+        return res.status(500).json({
+            error: "Server error",
+            details: err.message,
+        });
     }
 }
-
-// Add message visually
-function addMessage(text, sender) {
-    const chatBox = document.getElementById("chat-box");
-
-    const msg = document.createElement("div");
-    msg.classList.add("message", sender);
-    msg.innerText = text;
-
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    return msg; // RETURN element so we can edit it later
-}
-
-// Update bot placeholder
-function updateMessage(msgElement, newText) {
-    msgElement.innerText = newText;
-}
-
-// SEND ON ENTER
-document.getElementById("user-input").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") sendMessage();
-});
-
-// SEND ON BUTTON CLICK
-document.getElementById("send-btn").onclick = sendMessage;
